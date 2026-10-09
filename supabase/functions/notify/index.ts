@@ -1,6 +1,6 @@
 // Web Push. Admins: "new" alerts every device, "remind" alerts people who have not ticked.
 // Cron (x-cron-secret): "auto" sends one reminder per post once it has been live for the configured hours.
-import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.2";
 import webpush from "npm:web-push@3.6.7";
 
 const CORS = {

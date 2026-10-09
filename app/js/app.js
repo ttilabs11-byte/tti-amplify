@@ -31,7 +31,7 @@ function shell(active, page) {
   const current = (n) => (n.key === active ? 'page' : null);
   const topbar = h('header', { class: 'topbar' },
     h('a', { class: 'brand', href: '#/home', 'aria-label': 'TTI Amplify home' },
-      h('img', { class: 'brand-mark', src: 'icons/mark.png', alt: '', width: 38, height: 30 }),
+      h('img', { class: 'brand-mark', src: 'icons/mark.webp', alt: '', width: 38, height: 30 }),
       h('span', { class: 'brand-name' }, 'TTI ', h('span', null, 'Amplify'))),
     h('nav', { class: 'topnav', 'aria-label': 'Main' }, items.map((n) => h('a', { href: n.href, 'aria-current': current(n) }, n.label))),
     h('span', { class: 'spacer' }));

@@ -18,7 +18,7 @@ jobs:
           curl -fsS "https://fuhnyjmbjzjflxylxakw.supabase.co/rest/v1/departments?select=id&limit=1" \
             -H "apikey: sb_publishable_X6ElDgI9IkOuELXgmDGKFw_v-J35WNq" > /dev/null
       # GitHub switches off scheduled workflows after 60 days without commits; a monthly heartbeat keeps this one on.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Monthly heartbeat commit
         if: ${{ github.event_name == 'schedule' }}
         run: |

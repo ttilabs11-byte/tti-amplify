@@ -138,13 +138,17 @@ export function sheet(content, { label = 'Dialog', onClose } = {}) {
   document.addEventListener('keydown', onKey);
   document.body.append(scrim, panel);
   document.body.style.setProperty('overflow', 'hidden');
-  requestAnimationFrame(() => (panel.querySelector('[autofocus]') ?? panel).focus({ preventScroll: true }));
+  // Keep keyboard and screen-reader focus inside the sheet.
+  const app = document.getElementById('app');
+  if (app) app.inert = true;
+  (panel.querySelector('[autofocus]') ?? panel).focus({ preventScroll: true });
 
   function close(immediate = false) {
     if (openSheet?.panel !== panel) return;
     openSheet = null;
     document.removeEventListener('keydown', onKey);
     document.body.style.removeProperty('overflow');
+    if (app) app.inert = false;
     const finish = () => { scrim.remove(); panel.remove(); lastFocus?.focus?.({ preventScroll: true }); };
     if (immediate) finish();
     else {

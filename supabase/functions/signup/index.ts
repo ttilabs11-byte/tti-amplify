@@ -1,5 +1,5 @@
 // Creates a pre-confirmed account after checking the company code server-side.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -8,6 +8,8 @@ const CORS = {
 };
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MAX_FAILED_PER_HOUR = 20;
+// Backstop across all IPs, so rotating spoofed addresses cannot brute-force the code.
+const MAX_FAILED_GLOBAL_PER_HOUR = 300;
 const HOUR_MS = 3_600_000;
 
 const json = (status: number, body: unknown) =>
@@ -54,19 +56,23 @@ Deno.serve(async (req) => {
   if ("error" in input) return json(400, input);
 
   // Offices share one public IP, so only failed code attempts count towards the limit.
-  const ip = (req.headers.get("x-forwarded-for") ?? "unknown").split(",")[0].trim();
+  // The proxy-set address comes first; the left end of x-forwarded-for is client-controlled.
+  const forwarded = (req.headers.get("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  const ip = req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? forwarded.at(-1) ?? "unknown";
   const since = new Date(Date.now() - HOUR_MS).toISOString();
-  const { count, error: countErr } = await admin
-    .from("signup_attempts").select("id", { count: "exact", head: true }).eq("ip", ip).gte("at", since);
-  if (countErr) {
-    console.error("rate-limit check failed", countErr);
+  const [mine, all] = await Promise.all([
+    admin.from("signup_attempts").select("id", { count: "exact", head: true }).eq("ip", ip).gte("at", since),
+    admin.from("signup_attempts").select("id", { count: "exact", head: true }).gte("at", since),
+  ]);
+  if (mine.error || all.error) {
+    console.error("rate-limit check failed", mine.error ?? all.error);
     return json(500, { error: "Something went wrong. Please try again." });
   }
-  if ((count ?? 0) >= MAX_FAILED_PER_HOUR) {
+  if ((mine.count ?? 0) >= MAX_FAILED_PER_HOUR || (all.count ?? 0) >= MAX_FAILED_GLOBAL_PER_HOUR) {
     return json(429, { error: "Too many attempts. Please wait an hour and try again." });
   }
 
-  const { data: secrets, error: secErr } = await admin.from("app_secrets").select("key, value");
+  const { data: secrets, error: secErr } = await admin.from("app_secrets").select("key, value").in("key", ["staff_code", "admin_code"]);
   if (secErr || !secrets) {
     console.error("secrets read failed", secErr);
     return json(500, { error: "Something went wrong. Please try again." });

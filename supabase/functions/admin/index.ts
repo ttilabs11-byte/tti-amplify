@@ -1,5 +1,5 @@
 // Admin-only actions that need the service role: codes, password resets, roles, access.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",

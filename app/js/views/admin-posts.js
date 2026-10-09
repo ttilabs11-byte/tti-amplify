@@ -8,6 +8,7 @@ import { renderInsights } from './insights.js';
 const FLAG = { react: 'reacted', comment: 'commented', repost: 'reposted' };
 const VERB = { react: 'react to', comment: 'comment on', repost: 'repost' };
 const MAX_STARTERS = 5;
+const MAX_PASTE = 2000;
 const MAX_STARTER_LEN = 280;
 let listFilter = 'live';
 let reportFilter = 'all';
@@ -34,7 +35,7 @@ export async function renderAdmin(page, parts) {
 }
 
 const skeleton = (n, height) => h('div', { class: 'admin-grid' }, Array.from({ length: n }, () => h('div', { class: 'skel', style: { height } })));
-const failBox = (err) => h('div', { class: 'empty' }, icon('alert'), h('h3', null, 'Could not load'), h('p', null, errorText(err)));
+const failBox = (err) => h('div', { class: 'empty' }, icon('alert'), h('h2', null, 'Could not load'), h('p', null, errorText(err)));
 
 // Post list ---------------------------------------------------------------------------
 
@@ -54,19 +55,19 @@ async function renderPostList(body) {
   const avg = rates.length ? Math.round((rates.reduce((a, b) => a + b, 0) / rates.length) * 100) : 0;
   const shown = state.posts.filter((p) => (listFilter === 'live' ? !p.archived : p.archived));
 
-  const chip = (key, label) => h('button', { class: 'tab', type: 'button', 'aria-selected': String(listFilter === key), onClick: () => { listFilter = key; renderPostList(body); } }, label);
+  const chip = (key, label) => h('button', { class: 'tab', type: 'button', 'aria-pressed': String(listFilter === key), onClick: () => { listFilter = key; renderPostList(body); } }, label);
   const admin = isAdmin();
   body.replaceChildren(
     h('div', { class: 'kpis' },
       kpi(String(live.length), 'Live posts'), kpi(String(members), 'Members'), kpi(`${avg}%`, 'Avg. done')),
     h('div', { class: 'section-title' },
-      admin ? h('div', { class: 'filters', role: 'tablist' }, chip('live', 'Live'), chip('archived', 'Archived')) : h('h2', null, 'Live posts'),
+      admin ? h('div', { class: 'filters', role: 'group', 'aria-label': 'Show posts' }, chip('live', 'Live'), chip('archived', 'Archived')) : h('h2', null, 'Live posts'),
       h('div', { class: 'row' },
         h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onClick: monthSheet }, icon('download'), 'Month CSV'),
         admin ? h('a', { class: 'btn btn-primary btn-sm', href: '#/admin/new' }, icon('plus'), 'Add post') : null)),
     shown.length
       ? h('div', { class: 'admin-grid two' }, shown.map((p) => postRow(p, byId.get(p.id), members)))
-      : h('div', { class: 'empty' }, icon('sparkle'), h('h3', null, listFilter === 'live' ? 'No live posts' : 'Nothing archived'),
+      : h('div', { class: 'empty' }, icon('sparkle'), h('h2', null, listFilter === 'live' ? 'No live posts' : 'Nothing archived'),
         h('p', null, listFilter === 'live' ? 'Add the first post. Paste its LinkedIn link, or share it to this app from LinkedIn.' : 'Archived posts leave the staff feed but keep their records.')));
 }
 
@@ -80,7 +81,7 @@ function postRow(post, stat, members) {
   return h('a', { class: 'card apost', href: `#/admin/post/${post.id}`, style: { 'text-decoration': 'none', color: 'inherit' } },
     h('div', { class: 'row small muted' }, h('span', null, relDate(post.posted_on)), h('span', { class: 'grow' }),
       h('span', { class: 'mini-acts', 'aria-label': `Asks: ${post.asks.join(', ')}` }, ACTIONS.filter((a) => post.asks.includes(a.key)).map((a) => h('span', null, icon(a.key))))),
-    h('h3', null, post.title),
+    h('h2', null, post.title),
     h('div', { class: 'progress', role: 'img', 'aria-label': `${pct}% engaged` },
       h('i', { style: { width: `${pct}%` } }), h('i', { class: 'opened', style: { width: `${Math.max(openedPct, 0)}%` } })),
     h('div', { class: 'row' }, h('span', { class: 'meta' }, `${engaged} of ${members} engaged · ${Math.max(opened - engaged, 0)} opened only`),
@@ -90,7 +91,7 @@ function postRow(post, stat, members) {
 // Editor --------------------------------------------------------------------------------
 
 export function cleanLinkedInUrl(raw) {
-  const match = String(raw ?? '').match(/https?:\/\/(?:[a-z0-9-]+\.)?linkedin\.com\/[^\s"'<>]+/i);
+  const match = String(raw ?? '').slice(0, MAX_PASTE).match(/https?:\/\/(?:[a-z0-9-]+\.)?linkedin\.com\/[^\s"'<>]+/i);
   if (!match) return '';
   try {
     const url = new URL(match[0].replace(/^http:/i, 'https:'));
@@ -288,8 +289,8 @@ async function renderReport(body, id) {
   const listHost = h('div');
   const drawList = () => listHost.replaceChildren(peopleList(rows, post));
 
-  const chip = (key, label, n) => h('button', { class: 'tab', type: 'button', 'aria-selected': String(reportFilter === key),
-    onClick: (e) => { reportFilter = key; e.currentTarget.parentElement.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-selected', String(t === e.currentTarget))); drawList(); } },
+  const chip = (key, label, n) => h('button', { class: 'tab', type: 'button', 'aria-pressed': String(reportFilter === key),
+    onClick: (e) => { reportFilter = key; e.currentTarget.parentElement.querySelectorAll('.tab').forEach((t) => t.setAttribute('aria-pressed', String(t === e.currentTarget))); drawList(); } },
   label, h('span', { class: 'count' }, String(n)));
 
   const admin = isAdmin();
@@ -312,7 +313,7 @@ async function renderReport(body, id) {
       h('div', { class: 'card card-pad' }, h('h3', { style: { 'font-size': '17px', 'margin-bottom': '14px' } }, 'By department'), deptBars(rows)),
       h('div', { class: 'card card-pad' }, h('h3', { style: { 'font-size': '17px', 'margin-bottom': '14px' } }, 'Actions logged'), actionBars(post, rows))),
     h('div', { class: 'section-title' }, h('h2', null, 'People'),
-      h('div', { class: 'filters', role: 'tablist' }, chip('all', 'All', rows.length), chip('done', 'Done', done.length), chip('pending', 'Pending', rows.length - done.length))),
+      h('div', { class: 'filters', role: 'group', 'aria-label': 'Filter people' }, chip('all', 'All', rows.length), chip('done', 'Done', done.length), chip('pending', 'Pending', rows.length - done.length))),
     listHost);
   drawList();
 }
@@ -349,7 +350,7 @@ function actionBars(post, rows) {
 
 function peopleList(rows, post) {
   const shown = rows.filter((r) => (reportFilter === 'done' ? r.confirmed_at : reportFilter === 'pending' ? !r.confirmed_at : true));
-  if (!shown.length) return h('div', { class: 'empty' }, icon('teams'), h('h3', null, reportFilter === 'pending' ? 'Everyone is done' : 'No one here yet'));
+  if (!shown.length) return h('div', { class: 'empty' }, icon('teams'), h('h2', null, reportFilter === 'pending' ? 'Everyone is done' : 'No one here yet'));
   const asks = ACTIONS.filter((a) => post.asks.includes(a.key));
   return h('ul', { class: 'card list' }, shown.map((r) => h('li', null,
     h('span', { class: 'avatar', style: { '--c': avatarColor(r.user_id) } }, initials(r.full_name)),
@@ -377,7 +378,7 @@ function reminderText(post, rows) {
 const LI_FIELDS = [['li_impressions', 'Impressions'], ['li_reactions', 'Reactions'], ['li_comments', 'Comments'], ['li_reposts', 'Reposts']];
 
 function resultsCard(post, admin) {
-  const title = h('h3', { style: { 'font-size': '17px' } }, 'LinkedIn results');
+  const title = h('h2', { class: 'card-title' }, 'LinkedIn results');
   const when = post.li_recorded_at ? `Recorded ${relDate(post.li_recorded_at.slice(0, 10)).replace(/^(Today|Yesterday)/, (w) => w.toLowerCase())}.` : 'Not recorded yet.';
   if (!admin) {
     if (!post.li_recorded_at) return null;
@@ -441,7 +442,8 @@ function csvCell(value) {
 
 export function downloadCsv(filename, header, rows) {
   const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\r\n');
-  const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }));
+  // The BOM makes Excel read the file as UTF-8.
+  const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }));
   const a = h('a', { href: url, download: filename });
   document.body.append(a);
   a.click();

@@ -144,14 +144,14 @@ function tabsRow(page, todoCount, doneCount) {
 
 function emptyState(totalPosts) {
   if (!totalPosts) {
-    return h('div', { class: 'empty' }, icon('sparkle'), h('h3', null, 'No posts yet'),
+    return h('div', { class: 'empty' }, icon('sparkle'), h('h2', null, 'No posts yet'),
       h('p', null, 'When Tti posts on LinkedIn, it appears here and in the staff WhatsApp group.'));
   }
   if (tab === 'todo') {
-    return h('div', { class: 'empty' }, icon('party'), h('h3', null, "You're all caught up"),
+    return h('div', { class: 'empty' }, icon('party'), h('h2', null, "You're all caught up"),
       h('p', null, 'Thank you. New posts will appear here as soon as they go live.'));
   }
-  return h('div', { class: 'empty' }, icon('react'), h('h3', null, 'Nothing ticked yet'),
+  return h('div', { class: 'empty' }, icon('react'), h('h2', null, 'Nothing ticked yet'),
     h('p', null, 'Open a post from To do, engage on LinkedIn, then confirm it here.'));
 }
 

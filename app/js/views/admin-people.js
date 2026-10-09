@@ -12,7 +12,7 @@ function randomString(alphabet, length) {
   return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }
 
-const failBox = (err) => h('div', { class: 'empty' }, icon('alert'), h('h3', null, 'Could not load'), h('p', null, errorText(err)));
+const failBox = (err) => h('div', { class: 'empty' }, icon('alert'), h('h2', null, 'Could not load'), h('p', null, errorText(err)));
 
 // People ---------------------------------------------------------------------------------
 
@@ -36,7 +36,7 @@ export async function renderPeople(body) {
     count.textContent = `${shown.length} of ${people.length}`;
     listHost.replaceChildren(shown.length
       ? h('ul', { class: 'card list' }, shown.map((p) => h('li', null, personRow(p, isAdmin() ? () => personSheet(p, () => renderPeople(body)) : null))))
-      : h('div', { class: 'empty' }, icon('search'), h('h3', null, 'No matches')));
+      : h('div', { class: 'empty' }, icon('search'), h('h2', null, 'No matches')));
   };
 
   const search = h('input', { class: 'input', type: 'search', placeholder: 'Search name, email or team', 'aria-label': 'Search people' });

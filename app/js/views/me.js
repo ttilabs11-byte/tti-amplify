@@ -17,7 +17,7 @@ export async function renderTeams(page) {
   try {
     rows = await api.deptBoard();
   } catch (err) {
-    page.lastChild.replaceWith(h('div', { class: 'empty' }, icon('alert'), h('h3', null, 'Could not load teams'), h('p', null, errorText(err))));
+    page.lastChild.replaceWith(h('div', { class: 'empty' }, icon('alert'), h('h2', null, 'Could not load teams'), h('p', null, errorText(err))));
     return;
   }
   const myDept = deptName(state.profile?.department_id);
@@ -29,7 +29,7 @@ export async function renderTeams(page) {
         h('span', { class: 'small muted' }, `${r.members} ${Number(r.members) === 1 ? 'member' : 'members'}`),
         h('div', { class: 'bar' }, h('i', { style: { width: `${Math.max(Number(r.rate), 2)}%`, 'animation-delay': `${i * 60}ms` } }))),
       h('span', { class: 'pct' }, String(r.rate), h('small', null, '%'))))
-    : [h('div', { class: 'empty' }, icon('teams'), h('h3', null, 'No teams yet'), h('p', null, 'Rankings appear once colleagues join.'))];
+    : [h('div', { class: 'empty' }, icon('teams'), h('h2', null, 'No teams yet'), h('p', null, 'Rankings appear once colleagues join.'))];
   page.lastChild.replaceWith(h('div', { class: 'board' }, board));
   try {
     const top = await api.topAmplifiers();

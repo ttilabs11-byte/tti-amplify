@@ -9,7 +9,6 @@ const INK_FLIP_PCT = 60;
 const MIN_RAMP = 8;
 
 const pctOf = (done, members) => (Number(members) ? Math.round((Number(done) / Number(members)) * 100) : 0);
-const shortTitle = (t) => (t.length > 34 ? `${t.slice(0, 33)}…` : t);
 const shortDate = (d) => new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 const midSentence = (s) => s.replace(/^(Today|Yesterday)/, (w) => w.toLowerCase());
 const QUIET_GRACE_MS = 7 * 86_400_000;
@@ -21,12 +20,12 @@ export async function renderInsights(body) {
   try {
     data = await api.insights();
   } catch (err) {
-    body.replaceChildren(h('div', { class: 'empty' }, icon('alert'), h('h3', null, 'Could not load insights'), h('p', null, errorText(err))));
+    body.replaceChildren(h('div', { class: 'empty' }, icon('alert'), h('h2', null, 'Could not load insights'), h('p', null, errorText(err))));
     return;
   }
   const trend = (data?.trend ?? []).map((t) => ({ ...t, pct: pctOf(t.done, t.members) }));
   if (!trend.length) {
-    body.replaceChildren(h('div', { class: 'empty' }, icon('chart'), h('h3', null, 'No posts yet'), h('p', null, 'Insights build up as posts go live and colleagues tick them.')));
+    body.replaceChildren(h('div', { class: 'empty' }, icon('chart'), h('h2', null, 'No posts yet'), h('p', null, 'Insights build up as posts go live and colleagues tick them.')));
     return;
   }
   const members = Number(trend[0].members);
@@ -51,10 +50,10 @@ export async function renderInsights(body) {
 
 const kpi = (value, label) => h('div', { class: 'kpi' }, h('b', null, value), h('span', null, label));
 
-function chartCard(title, sub, chart, table, note) {
+function chartCard(title, sub, chart, tableEl, note) {
   return h('section', { class: 'card card-pad stack-s mt-16 chart-card' },
-    h('h3', null, title), h('p', { class: 'hint' }, sub), chart, note ?? null,
-    table ? h('details', { class: 'chart-table' }, h('summary', null, 'Show as table'), table) : null);
+    h('h2', null, title), h('p', { class: 'hint' }, sub), chart, note ?? null,
+    tableEl ? h('details', { class: 'chart-table' }, h('summary', null, 'Show as table'), tableEl) : null);
 }
 
 // Bars anchored to the baseline; every bar is focusable and carries its own tooltip.
@@ -132,7 +131,7 @@ function heatCard(trend, heat) {
 }
 
 function topCard(top) {
-  return h('section', { class: 'card card-pad stack-s' }, h('h3', null, 'Top amplifiers this month'),
+  return h('section', { class: 'card card-pad stack-s' }, h('h2', { class: 'card-title' }, 'Top amplifiers this month'),
     top.length
       ? h('ol', { class: 'list top-list' }, top.map((t, i) => h('li', null,
         h('span', { class: `rank-badge r${i + 1}` }, String(i + 1)),
@@ -146,7 +145,7 @@ function nudgeText(name) {
 }
 
 function inactiveCard(list) {
-  return h('section', { class: 'card card-pad stack-s' }, h('h3', null, 'Quiet for 30 days'),
+  return h('section', { class: 'card card-pad stack-s' }, h('h2', { class: 'card-title' }, 'Quiet for 30 days'),
     h('p', { class: 'hint' }, 'No ticks in the last 30 days. A friendly personal message works better than a group reminder.'),
     list.length
       ? h('ul', { class: 'list' }, list.slice(0, 30).map((p) => h('li', null,

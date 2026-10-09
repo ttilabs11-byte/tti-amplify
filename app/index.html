@@ -6,7 +6,7 @@
   <title>TTI Amplify</title>
   <meta name="description" content="Open, engage and confirm every Tti LinkedIn post.">
   <meta name="theme-color" content="#12224A">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://fuhnyjmbjzjflxylxakw.supabase.co; connect-src 'self' https://fuhnyjmbjzjflxylxakw.supabase.co wss://fuhnyjmbjzjflxylxakw.supabase.co; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: https://fuhnyjmbjzjflxylxakw.supabase.co; connect-src 'self' https://fuhnyjmbjzjflxylxakw.supabase.co wss://fuhnyjmbjzjflxylxakw.supabase.co; manifest-src 'self'; worker-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,17 +15,17 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/favicon-64.png" sizes="64x64">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="icons/logo-ondark.webp" as="image" fetchpriority="high">
   <link rel="stylesheet" href="css/app.css">
   <script src="vendor/supabase.js" defer></script>
   <script src="js/app.js" type="module"></script>
 </head>
 <body>
-  <div id="app" aria-live="polite">
+  <div id="app">
     <div class="boot" role="status">
-      <img src="icons/mark.png" alt="" width="72" height="56">
+      <img src="icons/mark.webp" alt="" width="72" height="56">
       <span class="sr-only">Loading TTI Amplify</span>
     </div>
   </div>

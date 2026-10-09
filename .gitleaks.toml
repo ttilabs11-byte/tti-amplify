@@ -1,0 +1,7 @@
+# Gitleaks config: default rules plus an allowlist for keys that are public by design.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Supabase publishable key and the Web Push VAPID public key are meant to ship to browsers."
+regexes = ['''sb_publishable_[A-Za-z0-9_-]+''', '''BIZ8MIXNY0LYUhUEp0AthRlKUvrqGjwZzEeNofXNZpB8oO5JMtCWHsirh_aRRtKI2X738JoVGEFhS1Lk91ji7MM''']

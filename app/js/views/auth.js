@@ -13,7 +13,7 @@ export function renderAuth(root) {
   root.replaceChildren(h('div', { class: 'auth' },
     h('header', { class: 'auth-hero' },
       arcs(),
-      h('img', { class: 'logo', src: 'icons/logo-ondark.png', alt: 'Tti Testing Laboratories', width: 900, height: 198 }),
+      h('img', { class: 'logo', src: 'icons/logo-ondark.webp', alt: 'Tti Testing Laboratories', width: 600, height: 132, fetchpriority: 'high' }),
       h('h1', null, 'Every post, ', h('em', null, 'amplified.')),
       h('p', null, 'Open each Tti LinkedIn post, react, comment or repost, then tick it off here.')),
     h('main', { class: 'auth-main' }, h('div', null, card,
