@@ -18,6 +18,20 @@
   <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/bricolage-grotesque-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="icons/logo-ondark.webp" as="image" fetchpriority="high">
+  <link rel="preconnect" href="https://fuhnyjmbjzjflxylxakw.supabase.co" crossorigin>
+  <!-- Fetch the whole module graph in parallel instead of a 4-level import waterfall. -->
+  <link rel="modulepreload" href="js/app.js">
+  <link rel="modulepreload" href="js/api.js">
+  <link rel="modulepreload" href="js/store.js">
+  <link rel="modulepreload" href="js/ui.js">
+  <link rel="modulepreload" href="js/push.js">
+  <link rel="modulepreload" href="js/views/auth.js">
+  <link rel="modulepreload" href="js/views/home.js">
+  <link rel="modulepreload" href="js/views/me.js">
+  <link rel="modulepreload" href="js/views/onboarding.js">
+  <link rel="modulepreload" href="js/views/admin-posts.js">
+  <link rel="modulepreload" href="js/views/admin-people.js">
+  <link rel="modulepreload" href="js/views/insights.js">
   <link rel="stylesheet" href="css/app.css">
   <script src="vendor/supabase.js" defer></script>
   <script src="js/app.js" type="module"></script>

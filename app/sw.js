@@ -1,5 +1,5 @@
 // Offline shell: cache the app files, never the API. Bump VERSION on every deploy.
-const VERSION = 'amplify-v4';
+const VERSION = 'amplify-v5';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css', './vendor/supabase.js',
   './js/app.js', './js/api.js', './js/store.js', './js/ui.js', './js/push.js', './icons/badge-96.png',

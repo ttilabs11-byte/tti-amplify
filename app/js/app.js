@@ -10,6 +10,12 @@ import { syncPush } from './push.js';
 
 const root = document.getElementById('app');
 
+// GitHub Pages cannot send X-Frame-Options or frame-ancestors, so refuse to run inside another site's frame.
+if (window.top !== window.self) {
+  root.replaceChildren();
+  window.top.location.replace(window.self.location.href);
+}
+
 window.addEventListener('error', (e) => api.logClientError(e.message, e.error?.stack));
 window.addEventListener('unhandledrejection', (e) => api.logClientError(e.reason?.message ?? String(e.reason), e.reason?.stack));
 const REFRESH_AFTER_MS = 30_000;
