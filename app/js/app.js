@@ -49,7 +49,7 @@ function shell(active, page) {
 
 function blocked(message) {
   root.replaceChildren(h('div', { class: 'page', style: { 'padding-top': '80px' } },
-    h('div', { class: 'empty' }, icon('lock'), h('h3', null, 'Account not available'), h('p', null, message),
+    h('div', { class: 'empty' }, icon('lock'), h('h2', null, 'Account not available'), h('p', null, message),
       h('button', { class: 'btn btn-primary mt-16', type: 'button', onClick: () => api.signOut() }, 'Sign out'))));
 }
 
@@ -185,6 +185,6 @@ async function boot() {
 
 boot().catch((err) => {
   root.replaceChildren(h('div', { class: 'page', style: { 'padding-top': '80px' } },
-    h('div', { class: 'empty' }, icon('alert'), h('h3', null, 'TTI Amplify could not start'), h('p', null, errorText(err)),
+    h('div', { class: 'empty' }, icon('alert'), h('h2', null, 'TTI Amplify could not start'), h('p', null, errorText(err)),
       h('button', { class: 'btn btn-primary mt-16', type: 'button', onClick: () => location.reload() }, 'Reload'))));
 });

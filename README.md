@@ -80,6 +80,35 @@ AMPLIFY_STAFF_CODE=... AMPLIFY_ADMIN_CODE=... node tests/api.e2e.mjs
 Afterwards delete the throwaway users (`email like 'amplify.%@example.com'`), the posts they created, and any test
 images.
 
+## Security and quality checks
+Last full audit: 2026-10-09. Every tool passed with no open findings.
+
+| Tool | What it checks |
+|---|---|
+| Supabase advisors | Security and performance lints |
+| Gitleaks | Secrets in git history (`.gitleaks.toml` allowlists the public key and the VAPID public key) |
+| Semgrep | JS, TS, OWASP Top 10, XSS, secrets and GitHub Actions rules |
+| ESLint | `no-unsanitized` and security plugins |
+| OSV | Known vulnerabilities in dependencies |
+| axe-core | Every route, light and dark, at 375 px |
+| Lighthouse | Performance, accessibility, best practices and SEO |
+| html-validate | HTML validity |
+| OWASP ZAP baseline | Passive scan of the live site |
+
+Hardening in place:
+- Least-privilege grants (`007_least_privilege.sql`).
+- Signup rate limits per IP and globally, with spoof-resistant client IP.
+- A strict CSP with no inline script or style.
+- Self-hosted fonts (OFL, see `app/fonts/LICENSES.md`).
+- GitHub Actions pinned to commit SHAs.
+- Pinned `supabase-js` in the Edge Functions.
+
+Known limits:
+- GitHub Pages cannot send custom HTTP headers (HSTS preload, `frame-ancestors`, Permissions-Policy). The CSP is a
+  meta tag and `app.js` refuses to run inside a frame. Move to Cloudflare Pages or Netlify if real headers are required.
+- Leaked-password protection (HaveIBeenPwned) is off in Supabase Auth. Turn it on in the dashboard under
+  Auth > Providers > Email if the plan allows it.
+
 ## Deploy a change
 Push to `main`. The Pages workflow publishes `app/`. Bump `VERSION` in `app/sw.js` on every release so installed apps
 pick up the new files.
