@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
   switch (action) {
     case "get_codes": {
-      const { data, error } = await admin.from("app_secrets").select("key, value");
+      const { data, error } = await admin.from("app_secrets").select("key, value").in("key", ["staff_code", "admin_code"]);
       if (error) return fail("get_codes", error);
       return json(200, Object.fromEntries(data.map((r) => [r.key, r.value])));
     }

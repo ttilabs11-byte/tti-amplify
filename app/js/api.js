@@ -75,7 +75,7 @@ export const updateMyProfile = (userId, fullName, departmentId) =>
   run(sb.from('profiles').update({ full_name: fullName, department_id: departmentId }).eq('id', userId).select().single());
 
 export const getPosts = () =>
-  run(sb.from('posts').select('id, url, title, note, asks, posted_on, archived, created_at')
+  run(sb.from('posts').select('id, url, title, note, asks, posted_on, archived, created_at, last_reminded_at')
     .order('posted_on', { ascending: false }).order('created_at', { ascending: false }).limit(200));
 
 export const getMyEngagements = (userId) =>
@@ -108,3 +108,4 @@ export const addDepartment = (name, sort) => run(sb.from('departments').insert({
 export const renameDepartment = (id, name) => run(sb.from('departments').update({ name }).eq('id', id));
 
 export const adminAction = (action, payload = {}) => invoke('admin', { action, ...payload });
+export const notify = (postId, kind) => invoke('notify', { post_id: postId, kind });

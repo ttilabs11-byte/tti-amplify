@@ -1,8 +1,9 @@
 // Teams ranking and the personal "Me" page.
 import * as api from '../api.js';
-import { h, icon, toast, busy, errorText, initials, avatarColor } from '../ui.js';
+import { h, mount, icon, toast, busy, errorText, initials, avatarColor } from '../ui.js';
 import { state, deptName, getPref, setPref, applyTheme, rerender } from '../store.js';
 import { install } from './home.js';
+import { pushPermission, currentSubscription, enablePush, disablePush, isIos, isStandalone } from '../push.js';
 
 const TOP_RANKS = 3;
 
@@ -63,6 +64,8 @@ export function renderMe(page) {
       h('div', { class: 'field' }, h('label', { for: 'me-dept' }, 'Department'), dept),
       save),
     passwordCard(),
+    h('div', { class: 'section-title' }, h('h2', null, 'Notifications')),
+    notifyCard(),
     h('div', { class: 'section-title' }, h('h2', null, 'App')),
     h('div', { class: 'card card-pad stack' },
       h('div', { class: 'field' }, h('label', { for: 'me-theme' }, 'Appearance'), themeSel),
@@ -73,8 +76,44 @@ export function renderMe(page) {
       h('li', null, 'React, comment or repost there, as the post asks.'),
       h('li', null, 'Come back. The app asks what you did. Tick it and confirm.'),
       h('li', null, 'HR sees team progress. Your ticks run on trust.')),
-    h('button', { class: 'btn btn-ghost btn-block mt-24', type: 'button', onClick: () => api.signOut() }, icon('logout'), 'Sign out'),
+    h('button', { class: 'btn btn-ghost btn-block mt-24', type: 'button', onClick: signOut }, icon('logout'), 'Sign out'),
     h('p', { class: 'muted small mt-16', style: { 'text-align': 'center' } }, 'TTI Amplify · Tti Testing Laboratories'));
+}
+
+async function signOut() {
+  await disablePush().catch(() => {});
+  await api.signOut();
+}
+
+function notifyCard() {
+  const card = h('div', { class: 'card card-pad stack' });
+  const draw = async () => {
+    const perm = pushPermission();
+    const sub = perm === 'granted' ? await currentSubscription().catch(() => null) : null;
+    let text = 'Get an alert on this phone when a new post goes live.';
+    let button = h('button', { class: 'btn btn-primary', type: 'button' }, icon('bell'), 'Turn on notifications');
+    if (perm === 'unsupported') {
+      text = isIos() && !isStandalone()
+        ? 'On iPhone: tap Share in Safari, then "Add to Home Screen". Open the app from there and turn notifications on here.'
+        : 'This browser does not support notifications. Try Chrome on Android.';
+      button = null;
+    } else if (perm === 'denied') {
+      text = 'Notifications are blocked. Allow them for TTI Amplify in your phone settings, then come back here.';
+      button = null;
+    } else if (sub) {
+      text = 'On. This phone gets an alert when a new post goes live.';
+      button = h('button', { class: 'btn btn-ghost', type: 'button' }, 'Turn off on this phone');
+    }
+    button?.addEventListener('click', () => busy(button, async () => {
+      if (sub) { await disablePush(); toast('Notifications off on this phone.'); } else { await enablePush(); toast('Notifications on. You will hear about new posts.', { type: 'ok' }); }
+      await draw();
+    }).catch((err) => toast(errorText(err), { type: 'err', ms: 6000 })));
+    mount(card,
+      h('div', { class: 'row' }, h('span', { class: `notify-dot${sub ? ' on' : ''}`, 'aria-hidden': 'true' }), h('b', null, sub ? 'On for this phone' : 'Off for this phone')),
+      h('p', { class: 'small muted' }, text), button);
+  };
+  draw();
+  return card;
 }
 
 function passwordCard() {

@@ -1,5 +1,6 @@
 // Home feed: summary, To do / Done tabs, post cards and the "what did you do?" confirm sheet.
 import * as api from '../api.js';
+import { pushPermission, enablePush } from '../push.js';
 import { h, mount, icon, ACTIONS, sheet, closeSheet, toast, busy, errorText, relDate, isFresh, haptic } from '../ui.js';
 import {
   state, livePosts, setEngagement, setPending, getPending, clearPending, MIN_AWAY_MS, rerender, getPref, setPref,
@@ -26,7 +27,7 @@ export function renderHome(page, { focusId } = {}) {
     offlineBanner(),
     hello(),
     summaryCard(posts, done.length),
-    installBanner(),
+    installBanner() ?? pushBanner(page),
     tabsRow(page, todo.length, done.length),
     h('section', { class: 'feed', 'aria-label': tab === 'todo' ? 'Posts to do' : 'Posts done' },
       list.length ? list.map(postCard) : emptyState(posts.length)),
@@ -90,6 +91,21 @@ function installBanner() {
     h('div', { class: 'grow' }, h('b', null, 'Install the app'), h('small', null, 'One tap from your home screen')),
     h('button', { class: 'btn btn-primary btn-sm', type: 'button', onClick: install }, 'Install'),
     h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Not now', onClick: () => { setPref('installDismissed', '1'); banner.remove(); } }, icon('x')));
+  return banner;
+}
+
+function pushBanner(page) {
+  if (pushPermission() !== 'default' || getPref('pushDismissed', '0') === '1') return null;
+  const turnOn = h('button', { class: 'btn btn-primary btn-sm', type: 'button' }, 'Turn on');
+  const banner = h('div', { class: 'banner install' }, icon('bell'),
+    h('div', { class: 'grow' }, h('b', null, 'New post alerts'), h('small', null, 'Know the moment one goes live')),
+    turnOn,
+    h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Not now', onClick: () => { setPref('pushDismissed', '1'); banner.remove(); } }, icon('x')));
+  turnOn.addEventListener('click', () => busy(turnOn, async () => {
+    await enablePush();
+    toast('Notifications on. You will hear about new posts.', { type: 'ok' });
+    renderHome(page);
+  }).catch((err) => { toast(errorText(err), { type: 'err', ms: 6000 }); renderHome(page); }));
   return banner;
 }
 

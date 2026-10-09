@@ -61,7 +61,7 @@ function personRow(p, onOpen) {
       h('div', { class: 'row', style: { gap: '6px' } }, h('span', { class: 'name' }, p.full_name),
         p.role === 'admin' ? h('span', { class: 'badge admin' }, 'Admin') : null,
         !p.active ? h('span', { class: 'badge off' }, 'Off') : null),
-      h('div', { class: 'meta' }, `${p.department ?? 'No department'} · ${p.engaged} ${Number(p.engaged) === 1 ? "post" : "posts"} · last ${last}`)),
+      h('div', { class: 'meta' }, `${p.department ?? 'No department'} · ${p.engaged} ${Number(p.engaged) === 1 ? "post" : "posts"} · last ${last}${Number(p.push_devices) ? ' · alerts on' : ''}`)),
     icon('chevronRight'));
 }
 

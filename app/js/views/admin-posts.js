@@ -183,13 +183,46 @@ const waHref = (text) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 function announceSheet(post) {
   const text = announceText(post);
   sheet(h('div', { class: 'stack' },
-    h('div', null, h('h2', null, 'Post is live'), h('p', { class: 'sub' }, 'Staff see it in their feed now. Tell them on WhatsApp:')),
+    h('div', null, h('h2', null, 'Post is live'), h('p', { class: 'sub' }, 'Staff see it in their feed now.')),
+    pushStatus(post),
+    h('p', { class: 'sub' }, 'Also tell them on WhatsApp:'),
     h('pre', { class: 'code-box small', style: { 'white-space': 'pre-wrap', margin: 0, 'font-family': 'inherit' } }, text),
     h('a', { class: 'btn btn-wa btn-block', href: waHref(text), target: '_blank', rel: 'noopener noreferrer' }, icon('send'), 'Send to WhatsApp'),
     h('div', { class: 'row' },
       h('button', { class: 'btn btn-ghost', type: 'button', style: { flex: 1 }, onClick: () => copyText(text, 'Message copied') }, icon('copy'), 'Copy'),
       h('button', { class: 'btn btn-soft', type: 'button', style: { flex: 1 }, onClick: () => closeSheet() }, 'Done'))),
   { label: 'Announce the post' });
+}
+
+function pushStatus(post) {
+  const line = h('p', { class: 'honour', role: 'status' }, icon('bell'), 'Sending phone notifications…');
+  api.notify(post.id, 'new')
+    .then((r) => line.replaceChildren(icon('bell'), r.devices
+      ? `Notification sent to ${r.people} ${r.people === 1 ? 'person' : 'people'} on ${r.sent} ${r.sent === 1 ? 'phone' : 'phones'}.`
+      : 'No one has notifications on yet. WhatsApp is the way for now.'))
+    .catch((err) => line.replaceChildren(icon('alert'), `Notifications not sent: ${errorText(err)}`));
+  return line;
+}
+
+const REMIND_GAP_MS = 2 * 60 * 60 * 1000;
+
+function pushRemindButton(post) {
+  const since = post.last_reminded_at ? Date.now() - new Date(post.last_reminded_at).getTime() : Infinity;
+  if (since < REMIND_GAP_MS) {
+    return h('button', { class: 'btn btn-soft btn-sm', type: 'button', disabled: true, 'aria-disabled': 'true' },
+      icon('bell'), `Reminded ${Math.max(1, Math.round(since / 60000))} min ago`);
+  }
+  const btn = h('button', { class: 'btn btn-soft btn-sm', type: 'button' }, icon('bell'), 'Push reminder');
+  btn.addEventListener('click', () => busy(btn, async () => {
+    const r = await api.notify(post.id, 'remind');
+    const now = new Date().toISOString();
+    state.posts = state.posts.map((p) => (p.id === post.id ? { ...p, last_reminded_at: now } : p));
+    toast(r.devices
+      ? `Reminder sent to ${r.people} ${r.people === 1 ? 'person' : 'people'} who haven't ticked yet.`
+      : 'No pending person has notifications on. Use the WhatsApp reminder.', { type: r.devices ? 'ok' : 'info', ms: 6000 });
+    btn.replaceWith(pushRemindButton({ ...post, last_reminded_at: now }));
+  }).catch((err) => toast(errorText(err), { type: 'err' })));
+  return btn;
 }
 
 // Report -----------------------------------------------------------------------------------
@@ -225,7 +258,8 @@ async function renderReport(body, id) {
         h('a', { class: 'btn btn-soft btn-sm', href: post.url, target: '_blank', rel: 'noopener noreferrer' }, icon('external'), 'Open post'),
         h('a', { class: 'btn btn-ghost btn-sm', href: `#/admin/edit/${post.id}` }, icon('edit'), 'Edit'),
         h('a', { class: 'btn btn-wa btn-sm', href: waHref(announceText(post)), target: '_blank', rel: 'noopener noreferrer' }, icon('send'), 'Announce'),
-        h('a', { class: 'btn btn-wa btn-sm', href: waHref(reminderText(post, rows)), target: '_blank', rel: 'noopener noreferrer' }, icon('send'), 'Remind'),
+        h('a', { class: 'btn btn-wa btn-sm', href: waHref(reminderText(post, rows)), target: '_blank', rel: 'noopener noreferrer' }, icon('send'), 'WhatsApp remind'),
+        pushRemindButton(post),
         h('button', { class: 'btn btn-ghost btn-sm', type: 'button', onClick: () => exportCsv(post, rows) }, icon('download'), 'CSV'))),
     h('div', { class: 'kpis mt-16' }, kpi(`${pct}%`, 'Engaged'), kpi(`${done.length}/${rows.length}`, 'Done'), kpi(String(openedOnly.length), 'Opened only')),
     h('div', { class: 'admin-grid two mt-16' },

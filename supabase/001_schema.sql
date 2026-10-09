@@ -293,3 +293,44 @@ grant execute on function public.admin_people() to authenticated;
 
 -- 003: my_summary() dropped; the app computes the summary on the device.
 drop function if exists public.my_summary();
+
+-- 004: Web Push. VAPID keys live in app_secrets (vapid_public, vapid_private), never in this repo.
+create table public.push_subscriptions (
+  endpoint text primary key check (endpoint ~ '^https://' and char_length(endpoint) <= 1000),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  p256dh text not null check (char_length(p256dh) between 20 and 200),
+  auth text not null check (char_length(auth) between 8 and 100),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index push_subscriptions_user_idx on public.push_subscriptions (user_id);
+alter table public.push_subscriptions enable row level security;
+revoke all on public.push_subscriptions from anon;
+revoke insert, update, delete on public.push_subscriptions from authenticated;
+create policy "read own push devices" on public.push_subscriptions
+  for select to authenticated using (user_id = (select auth.uid()));
+
+alter table public.posts add column last_reminded_at timestamptz;
+
+-- A device endpoint belongs to whoever is signed in on that device now.
+create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if not public.is_active_member() then
+    raise exception 'Account is not active' using errcode = '42501';
+  end if;
+  insert into public.push_subscriptions (endpoint, user_id, p256dh, auth)
+  values (p_endpoint, (select auth.uid()), p_p256dh, p_auth)
+  on conflict (endpoint) do update
+    set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, updated_at = now();
+end;
+$$;
+
+create or replace function public.delete_push_subscription(p_endpoint text)
+returns void language sql security definer set search_path = '' as $$
+  delete from public.push_subscriptions where endpoint = p_endpoint and user_id = (select auth.uid());
+$$;
+
+revoke execute on function public.save_push_subscription(text, text, text), public.delete_push_subscription(text) from anon, public;
+grant execute on function public.save_push_subscription(text, text, text), public.delete_push_subscription(text) to authenticated;
+-- admin_people() also gained a push_devices column (count of a person's subscribed devices).

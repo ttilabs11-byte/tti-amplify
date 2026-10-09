@@ -6,6 +6,7 @@ import { renderAuth } from './views/auth.js';
 import { renderHome, checkPending } from './views/home.js';
 import { renderTeams, renderMe } from './views/me.js';
 import { renderAdmin, cleanLinkedInUrl } from './views/admin-posts.js';
+import { syncPush } from './push.js';
 
 const root = document.getElementById('app');
 const REFRESH_AFTER_MS = 30_000;
@@ -124,6 +125,11 @@ function captureShare() {
 }
 
 function watchEnvironment() {
+  navigator.serviceWorker?.addEventListener('message', (e) => {
+    if (e.data?.type !== 'open') return;
+    const target = new URL(e.data.url, location.href);
+    if (target.origin === location.origin) location.hash = target.hash || '#/home';
+  });
   window.addEventListener('hashchange', render);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
@@ -161,10 +167,10 @@ async function boot() {
     state.engagements = new Map();
     if (session) startRealtime(); else stopRealtime?.();
     // Defer: Supabase calls inside the auth callback can deadlock the auth lock.
-    setTimeout(render, 0);
+    setTimeout(() => { render(); if (session) syncPush().catch(() => {}); }, 0);
   });
   booted = true;
-  if (state.session) startRealtime();
+  if (state.session) { startRealtime(); syncPush().catch(() => {}); }
   await render();
 }
 
