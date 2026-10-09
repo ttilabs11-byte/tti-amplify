@@ -147,7 +147,7 @@ p { margin: 0; }
 
 /* Boot ------------------------------------------------------------------- */
 .boot { min-height: 100dvh; display: grid; place-items: center; background: var(--navy-900); }
-.boot img { animation: breathe 1.6s var(--ease-in-out) infinite; }
+.boot img { width: min(300px, 80%); height: auto; animation: breathe 1.6s var(--ease-in-out) infinite; }
 @keyframes breathe { 50% { opacity: .55; transform: scale(.96); } }
 
 /* Shell ------------------------------------------------------------------- */
