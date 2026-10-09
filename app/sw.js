@@ -1,9 +1,9 @@
 // Offline shell: cache the app files, never the API. Bump VERSION on every deploy.
-const VERSION = 'amplify-v2';
+const VERSION = 'amplify-v3';
 const SHELL = [
   './', './index.html', './manifest.webmanifest', './css/app.css', './vendor/supabase.js',
   './js/app.js', './js/api.js', './js/store.js', './js/ui.js', './js/push.js', './icons/badge-96.png',
-  './js/views/auth.js', './js/views/home.js', './js/views/me.js', './js/views/admin-posts.js', './js/views/admin-people.js',
+  './js/views/auth.js', './js/views/home.js', './js/views/me.js', './js/views/admin-posts.js', './js/views/admin-people.js', './js/views/onboarding.js', './js/views/insights.js',
   './icons/mark.png', './icons/logo-ondark.png', './icons/icon-192.png', './icons/favicon-64.png',
 ];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];

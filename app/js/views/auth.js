@@ -2,6 +2,7 @@
 import * as api from '../api.js';
 import { h, icon, arcs, busy, errorText } from '../ui.js';
 import { state, loadDepartments } from '../store.js';
+import { privacySheet } from './onboarding.js';
 
 let mode = 'join';
 
@@ -16,7 +17,8 @@ export function renderAuth(root) {
       h('h1', null, 'Every post, ', h('em', null, 'amplified.')),
       h('p', null, 'Open each Tti LinkedIn post, react, comment or repost, then tick it off here.')),
     h('main', { class: 'auth-main' }, h('div', null, card,
-      h('p', { class: 'auth-foot' }, 'Your ticks are on trust. Only HR and admins see who did what.')))));
+      h('p', { class: 'auth-foot' }, 'Your ticks are on trust. ',
+        h('button', { class: 'linklike', type: 'button', onClick: privacySheet }, 'What HR sees'))))));
 }
 
 function tabs(draw) {

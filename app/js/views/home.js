@@ -1,15 +1,19 @@
 // Home feed: summary, To do / Done tabs, post cards and the "what did you do?" confirm sheet.
 import * as api from '../api.js';
 import { pushPermission, enablePush } from '../push.js';
-import { h, mount, icon, ACTIONS, sheet, closeSheet, toast, busy, errorText, relDate, isFresh, haptic } from '../ui.js';
+import { h, mount, icon, ACTIONS, sheet, closeSheet, toast, busy, errorText, relDate, isFresh, haptic, copyText } from '../ui.js';
 import {
   state, livePosts, setEngagement, setPending, getPending, clearPending, MIN_AWAY_MS, rerender, getPref, setPref,
+  inWindow, myPoints,
 } from '../store.js';
+import { maybeOnboard } from './onboarding.js';
 
 const FLAG = { react: 'reacted', comment: 'commented', repost: 'reposted' };
 const RING_R = 48;
 const RING_C = 2 * Math.PI * RING_R;
 const STAGGER_MS = 45;
+const BOOST_MS = 3 * 60 * 60 * 1000;
+const starterOffset = new Map();
 
 let tab = 'todo';
 let sheetPostId = null;
@@ -19,20 +23,31 @@ const isDone = (postId) => Boolean(state.engagements.get(postId)?.confirmed_at);
 export function renderHome(page, { focusId } = {}) {
   if (focusId) tab = isDone(focusId) ? 'done' : 'todo';
   const posts = livePosts();
-  const todo = posts.filter((p) => !isDone(p.id));
+  const current = posts.filter(inWindow);
+  const todo = current.filter((p) => !isDone(p.id));
+  const older = posts.filter((p) => !inWindow(p) && !isDone(p.id));
   const done = posts.filter((p) => isDone(p.id));
   const list = tab === 'todo' ? todo : done;
+  const focusOlder = focusId && older.some((p) => p.id === focusId);
 
   mount(page,
     offlineBanner(),
     hello(),
-    summaryCard(posts, done.length),
+    summaryCard(current, current.length - todo.length),
     installBanner() ?? pushBanner(page),
     tabsRow(page, todo.length, done.length),
     h('section', { class: 'feed', 'aria-label': tab === 'todo' ? 'Posts to do' : 'Posts done' },
       list.length ? list.map(postCard) : emptyState(posts.length)),
+    tab === 'todo' && older.length ? olderSection(older, focusOlder) : null,
   );
   if (focusId) flashCard(page, focusId);
+  maybeOnboard();
+}
+
+function olderSection(older, open) {
+  return h('details', { class: 'older', open },
+    h('summary', null, `Older posts (${older.length})`, h('span', { class: 'muted small' }, ' · optional, no pressure')),
+    h('div', { class: 'feed mt-16' }, older.map(postCard)));
 }
 
 function hello() {
@@ -53,13 +68,6 @@ function streakOf(posts) {
   return streak;
 }
 
-function actionsOf(posts) {
-  return posts.reduce((sum, p) => {
-    const e = state.engagements.get(p.id);
-    return sum + (e ? Number(e.reacted) + Number(e.commented) + Number(e.reposted) : 0);
-  }, 0);
-}
-
 function summaryCard(posts, doneCount) {
   const total = posts.length;
   const pct = total ? Math.round((doneCount / total) * 100) : 0;
@@ -73,6 +81,7 @@ function summaryCard(posts, doneCount) {
   requestAnimationFrame(() => requestAnimationFrame(() => bar.setAttribute('stroke-dashoffset', String(RING_C * (1 - pct / 100)))));
 
   const streak = streakOf(posts);
+  const pts = myPoints();
   const todo = total - doneCount;
   const headline = !total ? 'Nothing to do yet' : todo ? `${todo} ${todo === 1 ? 'post needs' : 'posts need'} you` : 'All caught up';
   const line = !total ? 'New posts will appear here.' : todo ? 'Early engagement lifts a post the most.' : 'Thank you for lifting every Tti post.';
@@ -81,8 +90,9 @@ function summaryCard(posts, doneCount) {
       h('b', { class: 'headline' }, headline),
       h('span', { class: 'line' }, line),
       h('div', { class: 'chips' },
-        h('span', { class: 'chip' }, icon('flame'), `${streak} in a row`),
-        h('span', { class: 'chip' }, icon('check'), `${actionsOf(posts)} ${actionsOf(posts) === 1 ? 'action' : 'actions'}`))));
+        streak ? h('span', { class: 'chip' }, icon('flame'), `${streak} in a row`) : null,
+        h('span', { class: 'chip' }, icon('sparkle'), `${pts.month} pts this month`),
+        h('span', { class: 'chip', title: pts.next ? `${pts.toNext} points to ${pts.next}` : 'Top level reached' }, icon('trophy'), pts.level))));
 }
 
 function installBanner() {
@@ -155,6 +165,7 @@ function postCard(post, index) {
   const meta = h('div', { class: 'post-meta' },
     h('span', null, relDate(post.posted_on)),
     !confirmed && isFresh(post.posted_on) ? h('span', { class: 'chip-new' }, 'New') : null,
+    !confirmed ? boostChip(post) : null,
     h('span', { class: 'grow' }),
     confirmed ? h('span', { class: 'chip-done' }, icon('check'), doneCount === asks.length ? 'Done' : `${doneCount} of ${asks.length}`) : null);
 
@@ -165,11 +176,51 @@ function postCard(post, index) {
   }));
 
   const card = h('article', { class: 'post', id: `post-${post.id}`, dataset: { id: post.id }, style: { 'animation-delay': `${index * STAGGER_MS}ms` } },
+    post.image_path ? h('img', { class: 'post-img', src: api.imageUrl(post.image_path), alt: '', loading: 'lazy', width: 1200, height: 628 }) : null,
     meta, h('h2', null, post.title),
     post.note ? h('div', { class: 'note' }, icon('idea'), h('span', null, post.note)) : null,
+    !confirmed ? starterBlock(post) : null,
     acts, cardFoot(post, opened, confirmed));
   if (!opened) card.append(h('p', { class: 'lock-hint' }, icon('lock'), 'Open it first to unlock ticking.'));
   return card;
+}
+
+function boostChip(post) {
+  const left = BOOST_MS - (Date.now() - new Date(post.created_at).getTime());
+  // A post added to the app days after it went up on LinkedIn has no boost window left.
+  const postedLongAgo = post.posted_on < new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  if (left <= 0 || postedLongAgo) return null;
+  const mins = Math.ceil(left / 60000);
+  const label = mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+  return h('span', { class: 'chip-boost', title: 'LinkedIn shows posts with early engagement to more people.' }, icon('flame'), `${label} boost left`);
+}
+
+function hashIndex(seed, n) {
+  let hash = 0;
+  for (const ch of seed) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return hash % n;
+}
+
+function starterBlock(post) {
+  const starters = (post.starters ?? []).filter(Boolean);
+  const wantsWords = post.asks.includes('comment') || post.asks.includes('repost');
+  if (!starters.length || !wantsWords) return null;
+  const base = hashIndex(`${state.profile?.id ?? ''}${post.id}`, starters.length);
+  const pick = () => starters[(base + (starterOffset.get(post.id) ?? 0)) % starters.length];
+  const text = h('p', { class: 'starter-text' }, pick());
+  const copyOpen = h('a', {
+    class: 'btn btn-soft btn-sm', href: post.url, target: '_blank', rel: 'noopener noreferrer',
+    onClick: () => { copyText(pick(), 'Starter copied. Paste it, then make it yours.'); handleOpen(post); },
+  }, icon('copy'), 'Copy & open');
+  const another = starters.length > 1 ? h('button', {
+    class: 'btn btn-ghost btn-sm', type: 'button',
+    onClick: () => { starterOffset.set(post.id, (starterOffset.get(post.id) ?? 0) + 1); text.textContent = pick(); },
+  }, icon('refresh'), 'Another') : null;
+  return h('div', { class: 'starter' },
+    h('span', { class: 'starter-label' }, icon('comment'), 'Your comment starter'),
+    text,
+    h('span', { class: 'hint' }, 'Make it yours: change a few words. Identical comments look fake to LinkedIn.'),
+    h('div', { class: 'row-wrap' }, copyOpen, another));
 }
 
 function openLink(post, label, cls) {

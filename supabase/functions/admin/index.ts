@@ -41,6 +41,9 @@ Deno.serve(async (req) => {
     return json(400, { error: "You can't change your own access." });
   }
 
+  const audit = (act: string, target: string | null, detail: Record<string, unknown> = {}) =>
+    admin.from("audit_log").insert({ actor: auth.user.id, action: act, target, detail });
+
   switch (action) {
     case "get_codes": {
       const { data, error } = await admin.from("app_secrets").select("key, value").in("key", ["staff_code", "admin_code"]);
@@ -53,6 +56,7 @@ Deno.serve(async (req) => {
       if (!key || !CODE_RE.test(value)) return json(400, { error: "Use 6 to 32 letters, numbers or dashes." });
       const { error } = await admin.from("app_secrets").upsert({ key, value });
       if (error) return fail("set_code", error);
+      await audit("code.change", key);
       return json(200, { ok: true });
     }
     case "reset_password": {
@@ -60,12 +64,14 @@ Deno.serve(async (req) => {
       if (password.length < 8 || password.length > 72) return json(400, { error: "Password must be 8 to 72 characters." });
       const { error } = await admin.auth.admin.updateUserById(userId, { password });
       if (error) return fail("reset_password", error);
+      await audit("person.reset_password", userId);
       return json(200, { ok: true });
     }
     case "set_role": {
-      const role = body.role === "admin" ? "admin" : "member";
+      const role = body.role === "admin" || body.role === "hod" ? body.role : "member";
       const { error } = await admin.from("profiles").update({ role }).eq("id", userId);
       if (error) return fail("set_role", error);
+      await audit("person.role", userId, { role });
       return json(200, { ok: true });
     }
     case "set_active": {
@@ -76,6 +82,7 @@ Deno.serve(async (req) => {
       if (banErr) return fail("set_active ban", banErr);
       const { error } = await admin.from("profiles").update({ active }).eq("id", userId);
       if (error) return fail("set_active", error);
+      await audit(active ? "person.restore" : "person.switch_off", userId);
       return json(200, { ok: true });
     }
     default:

@@ -1,7 +1,8 @@
 // Teams ranking and the personal "Me" page.
 import * as api from '../api.js';
 import { h, mount, icon, toast, busy, errorText, initials, avatarColor } from '../ui.js';
-import { state, deptName, getPref, setPref, applyTheme, rerender } from '../store.js';
+import { state, deptName, getPref, setPref, applyTheme, rerender, myPoints, LEVELS } from '../store.js';
+import { checklistList, privacySheet, CHECKLIST } from './onboarding.js';
 import { install } from './home.js';
 import { pushPermission, currentSubscription, enablePush, disablePush, isIos, isStandalone } from '../push.js';
 
@@ -30,6 +31,16 @@ export async function renderTeams(page) {
       h('span', { class: 'pct' }, String(r.rate), h('small', null, '%'))))
     : [h('div', { class: 'empty' }, icon('teams'), h('h3', null, 'No teams yet'), h('p', null, 'Rankings appear once colleagues join.'))];
   page.lastChild.replaceWith(h('div', { class: 'board' }, board));
+  try {
+    const top = await api.topAmplifiers();
+    if (top.length) {
+      page.append(h('div', { class: 'section-title' }, h('h2', null, 'Top amplifiers this month')),
+        h('ol', { class: 'card list top-list' }, top.map((t, i) => h('li', null,
+          h('span', { class: `rank-badge r${i + 1}` }, String(i + 1)),
+          h('div', { class: 'grow' }, h('div', { class: 'name' }, t.first_name), h('div', { class: 'meta' }, t.department ?? '')),
+          h('b', null, `${t.points} pts`)))));
+    }
+  } catch { /* optional section */ }
 }
 
 export function renderMe(page) {
@@ -57,12 +68,16 @@ export function renderMe(page) {
       h('div', { class: 'grow' },
         h('h1', { style: { 'font-size': '22px' } }, p.full_name),
         h('p', { class: 'muted small' }, `${deptName(p.department_id)} · ${email}`),
-        p.role === 'admin' ? h('span', { class: 'badge admin mt-8' }, icon('shield'), 'Admin') : null)),
+        p.role === 'admin' ? h('span', { class: 'badge admin mt-8' }, icon('shield'), 'Admin')
+          : p.role === 'hod' ? h('span', { class: 'badge admin mt-8' }, icon('shield'), 'Head of department') : null)),
     h('div', { class: 'section-title' }, h('h2', null, 'Your details')),
     h('div', { class: 'card card-pad stack' },
       h('div', { class: 'field' }, h('label', { for: 'me-name' }, 'Full name'), name),
       h('div', { class: 'field' }, h('label', { for: 'me-dept' }, 'Department'), dept),
       save),
+    pointsCard(),
+    h('div', { class: 'section-title' }, h('h2', null, 'LinkedIn-ready'), h('span', { class: 'muted small', id: 'ready-count' }, readyText())),
+    h('div', { class: 'card card-pad' }, checklistList(() => { const el = document.getElementById('ready-count'); if (el) el.textContent = readyText(); })),
     passwordCard(),
     h('div', { class: 'section-title' }, h('h2', null, 'Notifications')),
     notifyCard(),
@@ -70,6 +85,7 @@ export function renderMe(page) {
     h('div', { class: 'card card-pad stack' },
       h('div', { class: 'field' }, h('label', { for: 'me-theme' }, 'Appearance'), themeSel),
       installHelp()),
+    h('button', { class: 'btn btn-soft btn-block mt-16', type: 'button', onClick: privacySheet }, icon('shield'), 'What HR sees'),
     h('div', { class: 'section-title' }, h('h2', null, 'How it works')),
     h('ol', { class: 'card card-pad stack small', style: { 'padding-left': '36px', margin: 0 } },
       h('li', null, 'Tap ', h('b', null, 'Open on LinkedIn'), ' on a post.'),
@@ -114,6 +130,20 @@ function notifyCard() {
   };
   draw();
   return card;
+}
+
+const readyText = () => `${(state.profile?.checklist ?? []).length} of ${CHECKLIST.length} done`;
+
+function pointsCard() {
+  const p = myPoints();
+  const cur = LEVELS.find((l) => l.name === p.level).min;
+  const next = LEVELS.find((l) => l.name === p.next)?.min;
+  const pct = next ? Math.round(((p.total - cur) / (next - cur)) * 100) : 100;
+  return h('div', { class: 'card card-pad stack-s mt-16 points-card' },
+    h('div', { class: 'row' }, h('span', { class: 'level-badge' }, icon('trophy')),
+      h('div', { class: 'grow' }, h('b', { class: 'level-name' }, p.level), h('p', { class: 'small muted' }, `${p.total} points all time · ${p.month} this month`))),
+    h('div', { class: 'progress', role: 'img', 'aria-label': `${pct}% of the way to the next level` }, h('i', { style: { width: `${pct}%`, background: 'var(--primary)' } })),
+    h('p', { class: 'hint' }, p.next ? `${p.toNext} points to ${p.next}. Comments and reposts earn 3, reactions 1.` : 'Top level. Thank you for lifting Tti.'));
 }
 
 function passwordCard() {

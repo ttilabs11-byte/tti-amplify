@@ -17,6 +17,8 @@ const FRIENDLY = [
   [/violates check constraint "posts_url_check"/i, 'Use the full linkedin.com link of the post.'],
   [/violates check constraint "posts_title_check"/i, 'The title needs 3 to 140 characters.'],
   [/duplicate key value.*departments_name_key/i, 'That department already exists.'],
+  [/posts_url_live_key/i, 'That LinkedIn post is already in the app.'],
+  [/starters_ok|posts_starters_check/i, 'Up to 5 starters, each 280 characters or fewer.'],
 ];
 
 function friendly(error) {
@@ -68,14 +70,18 @@ export async function changePassword(password) {
 export const getDepartments = () => run(sb.from('departments').select('id, name, sort').order('sort').order('name'));
 
 export async function getProfile(userId) {
-  return run(sb.from('profiles').select('id, full_name, department_id, role, active').eq('id', userId).maybeSingle());
+  return run(sb.from('profiles').select('id, full_name, department_id, role, active, onboarded_at, checklist').eq('id', userId).maybeSingle());
 }
 
 export const updateMyProfile = (userId, fullName, departmentId) =>
   run(sb.from('profiles').update({ full_name: fullName, department_id: departmentId }).eq('id', userId).select().single());
 
+export const updateOnboarding = (userId, patch) =>
+  run(sb.from('profiles').update(patch).eq('id', userId).select('onboarded_at, checklist').single());
+
 export const getPosts = () =>
-  run(sb.from('posts').select('id, url, title, note, asks, posted_on, archived, created_at, last_reminded_at')
+  run(sb.from('posts').select('id, url, title, note, asks, posted_on, archived, created_at, last_reminded_at, image_path, starters, '
+      + 'li_impressions, li_reactions, li_comments, li_reposts, li_recorded_at')
     .order('posted_on', { ascending: false }).order('created_at', { ascending: false }).limit(200));
 
 export const getMyEngagements = (userId) =>
@@ -87,6 +93,25 @@ export const confirmEngagement = (postId, { react, comment, repost }) =>
   run(sb.rpc('confirm_engagement', { p_post: postId, p_reacted: react, p_commented: comment, p_reposted: repost }));
 
 export const deptBoard = () => run(sb.rpc('dept_board'));
+export const topAmplifiers = () => run(sb.rpc('top_amplifiers'));
+
+export async function getSettings() {
+  const rows = await run(sb.from('app_settings').select('key, value'));
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+}
+
+export const imageUrl = (path) => (path ? `${SUPABASE_URL}/storage/v1/object/public/post-images/${path}` : null);
+
+let errorsSent = 0;
+const MAX_ERRORS_PER_SESSION = 5;
+export function logClientError(message, stack) {
+  if (errorsSent >= MAX_ERRORS_PER_SESSION) return;
+  errorsSent += 1;
+  sb.rpc('log_client_error', {
+    p_message: String(message).slice(0, 500), p_stack: stack ? String(stack).slice(0, 2000) : null,
+    p_url: location.hash.slice(0, 300), p_ua: navigator.userAgent.slice(0, 300),
+  }).then(() => {}, () => {});
+}
 
 export function onPostsChange(cb) {
   const channel = sb.channel('posts-live')
@@ -100,6 +125,31 @@ export function onPostsChange(cb) {
 export const adminPostStats = () => run(sb.rpc('admin_post_stats'));
 export const adminPostReport = (postId) => run(sb.rpc('admin_post_report', { p_post: postId }));
 export const adminPeople = () => run(sb.rpc('admin_people'));
+export const insights = () => run(sb.rpc('insights'));
+export const auditLog = () =>
+  run(sb.from('audit_log').select('id, at, action, target, detail, actor:profiles(full_name)').order('at', { ascending: false }).limit(50));
+export const saveSetting = (key, value) =>
+  run(sb.from('app_settings').update({ value, updated_at: new Date().toISOString() }).eq('key', key));
+
+const IMAGE_MAX_PX = 1200;
+const IMAGE_QUALITY = 0.82;
+/** Resize on the device to WebP (1200 px max) and upload. Returns the storage path. */
+export async function uploadPostImage(file) {
+  if (!file.type.startsWith('image/')) throw new Error('Choose an image file.');
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, IMAGE_MAX_PX / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close?.();
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', IMAGE_QUALITY));
+  if (!blob || blob.type !== 'image/webp') throw new Error('This browser cannot convert images. Try Chrome.');
+  const path = `${crypto.randomUUID()}.webp`;
+  const { error } = await sb.storage.from('post-images').upload(path, blob, { contentType: 'image/webp', cacheControl: '31536000' });
+  if (error) throw friendly(error);
+  return path;
+}
 
 export const createPost = (post) => run(sb.from('posts').insert(post).select().single());
 export const updatePost = (id, patch) => run(sb.from('posts').update(patch).eq('id', id).select().single());

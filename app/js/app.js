@@ -1,7 +1,7 @@
 // Boot, routing and the app shell.
 import * as api from './api.js';
 import { h, icon, toast, errorText } from './ui.js';
-import { state, setRenderer, loadCore, loadDepartments, isAdmin, applyTheme, livePosts } from './store.js';
+import { state, setRenderer, loadCore, loadDepartments, isAdmin, isReporter, applyTheme, livePosts, inWindow } from './store.js';
 import { renderAuth } from './views/auth.js';
 import { renderHome, checkPending } from './views/home.js';
 import { renderTeams, renderMe } from './views/me.js';
@@ -9,6 +9,9 @@ import { renderAdmin, cleanLinkedInUrl } from './views/admin-posts.js';
 import { syncPush } from './push.js';
 
 const root = document.getElementById('app');
+
+window.addEventListener('error', (e) => api.logClientError(e.message, e.error?.stack));
+window.addEventListener('unhandledrejection', (e) => api.logClientError(e.reason?.message ?? String(e.reason), e.reason?.stack));
 const REFRESH_AFTER_MS = 30_000;
 let stopRealtime = null;
 let booted = false;
@@ -23,8 +26,8 @@ const NAV = [
 ];
 
 function shell(active, page) {
-  const items = NAV.filter((n) => !n.admin || isAdmin());
-  const todo = livePosts().filter((p) => !state.engagements.get(p.id)?.confirmed_at).length;
+  const items = NAV.filter((n) => !n.admin || isReporter()).map((n) => (n.admin && !isAdmin() ? { ...n, label: 'Reports' } : n));
+  const todo = livePosts().filter((p) => inWindow(p) && !state.engagements.get(p.id)?.confirmed_at).length;
   const current = (n) => (n.key === active ? 'page' : null);
   const topbar = h('header', { class: 'topbar' },
     h('a', { class: 'brand', href: '#/home', 'aria-label': 'TTI Amplify home' },
@@ -74,7 +77,7 @@ async function render() {
   const [section = 'home', ...rest] = parseRoute();
   const page = h('div', { class: 'page' });
   const active = section === 'p' ? 'home' : section;
-  if (section === 'admin' && !isAdmin()) { location.replace('#/home'); return; }
+  if (section === 'admin' && !isReporter()) { location.replace('#/home'); return; }
   root.replaceChildren(shell(active, page));
   window.scrollTo({ top: 0 });
 
