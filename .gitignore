@@ -1,0 +1,4 @@
+_test_session.json
+*.local.*
+.headroom-cache/
+__pycache__/
