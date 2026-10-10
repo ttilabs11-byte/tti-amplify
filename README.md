@@ -106,8 +106,8 @@ Hardening in place:
 Known limits:
 - GitHub Pages cannot send custom HTTP headers (HSTS preload, `frame-ancestors`, Permissions-Policy). The CSP is a
   meta tag and `app.js` refuses to run inside a frame. Move to Cloudflare Pages or Netlify if real headers are required.
-- Leaked-password protection (HaveIBeenPwned) is off in Supabase Auth. Turn it on in the dashboard under
-  Auth > Providers > Email if the plan allows it.
+- Leaked-password protection (HaveIBeenPwned) is off because it needs the Supabase Pro plan, and the project is on
+  the free plan. If the plan is upgraded, turn it on under Auth > Providers > Email.
 
 ## Deploy a change
 Push to `main`. The Pages workflow publishes `app/`. Bump `VERSION` in `app/sw.js` on every release so installed apps
