@@ -243,7 +243,8 @@ function pushStatus(post) {
   const line = h('p', { class: 'honour', role: 'status' }, icon('bell'), 'Sending phone notifications…');
   api.notify(post.id, 'new')
     .then((r) => line.replaceChildren(icon('bell'), r.devices
-      ? `Notification sent to ${r.people} ${r.people === 1 ? 'person' : 'people'} on ${r.sent} ${r.sent === 1 ? 'phone' : 'phones'}.`
+      ? `Notification sent to ${r.people} ${r.people === 1 ? 'person' : 'people'} on ${r.sent} ${r.sent === 1 ? 'phone' : 'phones'}`
+        + (r.queued ? `. ${r.queued} more get it in waves over the next 30 minutes, so comments don't all land at once.` : '.')
       : 'No one has notifications on yet. WhatsApp is the way for now.'))
     .catch((err) => line.replaceChildren(icon('alert'), `Notifications not sent: ${errorText(err)}`));
   return line;

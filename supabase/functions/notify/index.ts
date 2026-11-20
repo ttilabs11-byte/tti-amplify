@@ -1,7 +1,10 @@
-// Web Push. Admins: "new" alerts every device, "remind" alerts people who have not ticked.
-// Cron (x-cron-secret): "auto" sends one reminder per post once it has been live for the configured hours.
+// Web Push. Admins: "new" alerts everyone in waves (first wave now, the rest queued in push_queue, see waves.ts),
+// "remind" alerts people who have not ticked.
+// Cron (x-cron-secret): "auto" sends queued waves that are due, then one reminder per post once it has been live for
+// the configured hours.
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.117.2";
 import webpush from "npm:web-push@3.6.7";
+import { planWaves } from "./waves.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -67,9 +70,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  const recipients = await loadRecipients(db, postId, kind === "remind", auth.user.id);
+  let recipients = await loadRecipients(db, postId, kind === "remind", auth.user.id);
   if (recipients === null) return json(500, { error: "Something went wrong. Please try again." });
-  const result = await sendAll(db, recipients, payloadFor(post, kind));
+  let queued = 0;
+  if (kind === "new") ({ now: recipients, queued } = await queueLaterWaves(db, postId, recipients));
+  const result = { ...(await sendAll(db, recipients, payloadFor(post, kind))), queued };
   if (kind === "remind") {
     await db.from("posts").update({ last_reminded_at: new Date().toISOString() }).eq("id", postId);
     await db.from("audit_log").insert({ actor: auth.user.id, action: "post.remind", target: postId, detail: result });
@@ -92,6 +97,7 @@ async function setVapid(db: SupabaseClient): Promise<boolean> {
 async function runAuto(db: SupabaseClient, given: string): Promise<Response> {
   const { data: secret } = await db.from("app_secrets").select("value").eq("key", "cron_secret").maybeSingle();
   if (!secret?.value || !safeEqual(given, secret.value)) return json(401, { error: "Unauthorised." });
+  const queue = await sendQueued(db);
   const { data: due, error } = await db.rpc("due_auto_reminders");
   if (error) {
     console.error("due_auto_reminders failed", error);
@@ -113,7 +119,47 @@ async function runAuto(db: SupabaseClient, given: string): Promise<Response> {
     await db.from("audit_log").insert({ actor: null, action: "post.auto_remind", target: id, detail: result });
     done.push({ id, ...result });
   }
-  return json(200, { processed: done.length, posts: done });
+  return json(200, { processed: done.length, posts: done, queue });
+}
+
+// Queues every wave after the first; returns the devices to alert now. On a queue error everyone is alerted now.
+async function queueLaterWaves(db: SupabaseClient, postId: string, subs: Sub[]): Promise<{ now: Sub[]; queued: number }> {
+  const { first, later } = planWaves(subs.map((s) => s.user_id), Date.now());
+  if (!later.length) return { now: subs, queued: 0 };
+  const { error } = await db.from("push_queue")
+    .upsert(later.map((l) => ({ post_id: postId, ...l })), { onConflict: "post_id,user_id" });
+  if (error) {
+    console.error("push_queue write failed; alerting everyone now", error);
+    return { now: subs, queued: 0 };
+  }
+  const firstSet = new Set(first);
+  return { now: subs.filter((s) => firstSet.has(s.user_id)), queued: later.length };
+}
+
+// Sends due queued waves. Rows are deleted before sending (an alert at most once); people who ticked are skipped.
+async function sendQueued(db: SupabaseClient) {
+  const { data: rows, error } = await db.from("push_queue").select("post_id, user_id")
+    .lte("send_at", new Date().toISOString()).limit(1000);
+  if (error) {
+    console.error("push_queue read failed", error);
+    return { people: 0, sent: 0, failed: 0 };
+  }
+  const byPost = new Map<string, string[]>();
+  for (const r of rows ?? []) byPost.set(r.post_id, [...(byPost.get(r.post_id) ?? []), r.user_id]);
+  const total = { people: 0, sent: 0, failed: 0 };
+  for (const [postId, users] of byPost) {
+    await db.from("push_queue").delete().eq("post_id", postId).in("user_id", users);
+    const post = await loadPost(db, postId);
+    if (!post || post.archived) continue;
+    const subs = await loadRecipients(db, postId, true, null);
+    if (subs === null) continue;
+    const wanted = new Set(users);
+    const r = await sendAll(db, subs.filter((s) => wanted.has(s.user_id)), payloadFor(post, "new"));
+    total.people += r.people;
+    total.sent += r.sent;
+    total.failed += r.failed;
+  }
+  return total;
 }
 
 async function loadPost(db: SupabaseClient, id: string): Promise<Post | null> {

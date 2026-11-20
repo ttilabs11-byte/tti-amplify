@@ -24,8 +24,11 @@ run on trust. HR and admins see progress per post, per department and per person
 - **Add a post:** Admin, then **Add post**. Paste the LinkedIn link and give it a title. On Android, in the LinkedIn
   app tap **Share**, then **TTI Amplify**, and the link fills itself in. Optionally add an image (resized on the phone
   to WebP) and up to 5 comment starters, one per line. The same live link cannot be added twice.
-- **Tell staff:** publishing sends a phone notification to everyone who turned them on, and the confirmation shows
-  how many people it reached. Tap **Send to WhatsApp** to reach the rest. The message carries a deep link to the post.
+- **Tell staff:** publishing sends a phone notification to everyone who turned them on, in waves: a quarter at once,
+  the rest over the next 30 minutes (since 2026-11-20), so staff comments don't all land in the same minute, which
+  LinkedIn reads as a coordinated pod. Teams of 4 or fewer get it at once; anyone who ticks the post before their wave
+  is skipped. The confirmation shows how many people it reached now and how many are queued. Tap **Send to WhatsApp**
+  to reach the rest. The message carries a deep link to the post.
 - **Push reminder:** on a post's report, this notifies only the people who have not ticked it yet. It can be sent at
   most once every 2 hours per post. In **People**, "alerts on" marks who has notifications turned on.
 - **Track:** open a post to see the percentage done, the split by department, who is done and who is pending.
@@ -53,8 +56,8 @@ CSV exports for their own department only. The database enforces the scope.
 | Data and logins | Supabase project `tti-amplify` (ap-south-1): Postgres with row-level security, Auth, and Realtime for new posts. |
 | Sign-up | Edge Function `signup` checks the company code on the server and creates a confirmed user. No email server is needed. |
 | Admin actions | Edge Function `admin` handles codes, password resets, roles and access, and checks the caller is an active admin. |
-| Auto-reminders | `pg_cron` runs every 10 minutes and calls `notify` with a secret header; `due_auto_reminders()` picks the posts. |
-| Notifications | Web Push with VAPID keys. Edge Function `notify` (admins only) sends "new post" alerts to every device and "reminder" alerts to pending people only, and removes dead devices. The private key lives only in the database. |
+| Auto-reminders | `pg_cron` runs every 10 minutes and calls `notify` with a secret header when a reminder is due (`due_auto_reminders()`) or a queued alert wave is due (`push_queue`). |
+| Notifications | Web Push with VAPID keys. Edge Function `notify` (admins only) sends "new post" alerts in waves (`waves.ts`: first wave now, the rest queued in `push_queue` and sent by the cron, pending people only; test `node --experimental-strip-types tests/waves.test.ts`) and "reminder" alerts to pending people only, and removes dead devices. The private key lives only in the database. Migration `supabase/008_staggered_alerts.sql`. |
 | Hosting | GitHub Pages through `.github/workflows/pages.yml`. |
 | Keep-alive | `.github/workflows/keepalive.yml` pings Supabase daily, so the free project never pauses. |
 
